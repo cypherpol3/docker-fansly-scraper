@@ -1,0 +1,43 @@
+# Based on agnosto/fansly-scraper's example-config.toml.
+[account]
+auth_token = ""
+user_agent = ""
+
+[options]
+save_location = "/data" # don't modify this value
+m3u8_dl = false # set true if you have ffmpeg and want instances of it spawned to try to save higher quality videos
+check_updates = true
+skip_previews = false
+use_content_as_filename = false
+content_filename_template = "{date}-{content}_{index}" 
+download_media_type = "all" # options: all, image, video, audio
+skip_downloaded_posts = false
+apply_file_timestamps = false # set true to preserve original content publication timestamps on downloaded output files
+
+[live_settings]
+save_location = "" # the empty live path uses /data/<creator>/lives/
+vods_file_extension = ".ts" # ts files handle recording crashes better, can be watched via vlc/mpv or converted
+ffmpeg_convert = true # Convert to MP4 after recording
+generate_contact_sheet = true # Generate preview thumbnails
+filename_template = "{model_username}_{date}_{streamId}_{streamVersion}" # Available variables: model_username, date, streamId, streamVersion
+date_format = "20060102_150405" # Default format 
+record_chat = true
+ffmpeg_recording_options = ""
+ffmpeg_conversion_options = ""
+
+[notifications]
+  enabled = true
+  system_notify = false
+  discord_webhook = "https://discord.com/api/webhooks/1234567890/abcdefghi"
+  discord_mention_id = "" # userid or role:roleid
+  telegram_bot_token = ""
+  telegram_chat_id = ""
+  notify_on_live_start = true
+  notify_on_live_end = false
+
+
+[security_headers] # These get automatically added, no need to touch unless you want to.
+device_id = ""
+session_id = ""
+check_key = ""
+last_updated = 2024-07-29T00:00:00Z
