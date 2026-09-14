@@ -2,6 +2,13 @@ name: Docker Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Force rebuild even if the upstream version already exists"
+        required: false
+        default: false
+        type: boolean
+
   schedule:
     - cron: "17 4 * * *"
 
@@ -14,6 +21,7 @@ env:
 
 jobs:
   publish:
+    name: Test and publish
     runs-on: ubuntu-latest
 
     steps:
@@ -33,7 +41,7 @@ jobs:
           TAG="$(echo "${RELEASE_JSON}" | jq -r '.tag_name')"
 
           if [ -z "${TAG}" ] || [ "${TAG}" = "null" ]; then
-            echo "Could not determine upstream release."
+            echo "Could not determine latest stable upstream release."
             exit 1
           fi
 
@@ -42,7 +50,8 @@ jobs:
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
-          echo "Latest upstream release: ${TAG}"
+          echo "Latest stable upstream release: ${TAG}"
+          echo "Docker version tag: ${VERSION}"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -53,51 +62,95 @@ jobs:
       - name: Check whether version already exists
         id: image
         run: |
-          if docker buildx imagetools inspect \
+          if docker manifest inspect \
             "${IMAGE_NAME}:${{ steps.upstream.outputs.version }}" \
             >/dev/null 2>&1; then
 
             echo "exists=true" >> "${GITHUB_OUTPUT}"
-            echo "Image already exists."
+            echo "Image ${IMAGE_NAME}:${{ steps.upstream.outputs.version }} already exists."
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
-            echo "Image does not exist yet."
+            echo "Image ${IMAGE_NAME}:${{ steps.upstream.outputs.version }} does not exist."
           fi
 
+      - name: Decide whether to build
+        id: decision
+        env:
+          IMAGE_EXISTS: ${{ steps.image.outputs.exists }}
+          FORCE_REBUILD: ${{ inputs.force }}
+        run: |
+          if [ "${FORCE_REBUILD}" = "true" ]; then
+            echo "build=true" >> "${GITHUB_OUTPUT}"
+            echo "Force rebuild requested."
+          elif [ "${IMAGE_EXISTS}" != "true" ]; then
+            echo "build=true" >> "${GITHUB_OUTPUT}"
+            echo "New upstream version detected."
+          else
+            echo "build=false" >> "${GITHUB_OUTPUT}"
+            echo "Nothing to build."
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.decision.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build test image
+        if: steps.decision.outputs.build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          platforms: linux/amd64
+          tags: fansly-scraper:test
+          build-args: |
+            FANSLY_SCRAPER_VERSION=${{ steps.upstream.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run entrypoint tests
+        if: steps.decision.outputs.build == 'true'
+        run: |
+          python3 tests/entrypoint_errors.py --image fansly-scraper:test
+
       - name: Set up QEMU
-        if: steps.image.outputs.exists != 'true'
+        if: steps.decision.outputs.build == 'true'
         uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
-      - name: Set up Docker Buildx
-        if: steps.image.outputs.exists != 'true'
-        uses: docker/setup-buildx-action@v4
-
       - name: Docker metadata
-        if: steps.image.outputs.exists != 'true'
+        if: steps.decision.outputs.build == 'true'
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
+
           tags: |
-            type=raw,value=${{ steps.upstream.outputs.version }}
-            type=raw,value=latest
+            type=raw,value=${{ steps.upstream.outputs.version }},priority=900
+            type=raw,value=latest,priority=100
+
           labels: |
-            org.opencontainers.image.version=${{ steps.upstream.outputs.version }}
+            org.opencontainers.image.title=docker-fansly-scraper
+            org.opencontainers.image.description=Docker image for agnosto/fansly-scraper
+            org.opencontainers.image.url=https://github.com/cypherpol3/docker-fansly-scraper
+            org.opencontainers.image.source=https://github.com/cypherpol3/docker-fansly-scraper
 
       - name: Build and push
-        if: steps.image.outputs.exists != 'true'
+        if: steps.decision.outputs.build == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
+
           platforms: |
             linux/amd64
             linux/arm64
+
           build-args: |
             FANSLY_SCRAPER_VERSION=${{ steps.upstream.outputs.tag }}
+
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
           cache-from: type=gha
           cache-to: type=gha,mode=max
