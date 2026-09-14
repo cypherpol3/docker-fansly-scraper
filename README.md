@@ -2,6 +2,8 @@
 
 Docker image for [agnosto/fansly-scraper](https://github.com/agnosto/fansly-scraper).
 
+Unofficial Docker image; not affiliated with the upstream project or Fansly.
+
 For account setup and scraper features, see the project's [documentation](https://github.com/agnosto/fansly-scraper#readme) and [configuration guide](https://github.com/agnosto/fansly-scraper/blob/main/config.md).
 
 ## Docker Compose
@@ -26,7 +28,13 @@ services:
     stop_grace_period: 30s
 ```
 
-`PUID`/`PGID` default to `1000:1000`; adapt them to your folder permissions. Existing files must be readable and writable by that user. Set `TZ` to your timezone if desired.
+| Parameter | Default | Purpose |
+| --------- | ------- | ------- |
+| `PUID` | `1000` | User ID used by fansly-scraper |
+| `PGID` | `1000` | Group ID used by fansly-scraper |
+| `TZ` | Unset (`Etc/UTC` in the example) | Timezone |
+| `/config` | — | Configuration and persistent state |
+| `/data` | — | Downloaded media |
 
 Start and access the menu:
 
