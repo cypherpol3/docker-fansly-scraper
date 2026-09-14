@@ -34,6 +34,20 @@ for directory in /config /data; do
         || fail "$directory is not writable by $PUID:$PGID. Check host permissions or ACLs."
 done
 
+# Keep this descriptor open across exec: the kernel releases the lock on exit,
+# including SIGKILL. Never delete this file: all instances must lock the same inode.
+[ ! -L /config/.container.lock ] || fail "/config/.container.lock must not be a symbolic link."
+exec 9>>/config/.container.lock
+if flock -n -E 75 9; then
+    :
+else
+    lock_status=$?
+    if [ "$lock_status" -eq 75 ]; then
+        fail "Another instance is using /config. Stop it before starting this container."
+    fi
+    fail "Cannot lock /config (flock exit $lock_status). Check filesystem locking support and permissions."
+fi
+
 if [ ! -e /config/config.toml ]; then
     [ ! -L /config/config.toml ] || fail "/config/config.toml is a broken symbolic link."
     (umask 077; cp /defaults/config.toml /config/config.toml)
@@ -42,5 +56,16 @@ fi
 
 [ -f /config/config.toml ] && [ -r /config/config.toml ] && [ -w /config/config.toml ] \
     || fail "/config/config.toml must be a readable and writable file for $PUID:$PGID. Check its host permissions."
+
+# With exclusive access established, old process IDs cannot describe this run.
+# Only remove runtime markers, never monitoring_state.json or recording data.
+[ ! -L /config/active_recordings ] \
+    || fail "/config/active_recordings must not be a symbolic link."
+for marker in /config/monitor.pid /config/active_recordings/*.lock; do
+    [ -e "$marker" ] || [ -L "$marker" ] || continue
+    [ ! -d "$marker" ] || fail "Expected a runtime file, found a directory: $marker"
+    rm -f -- "$marker" || fail "Cannot remove stale runtime file: $marker"
+    echo "Removed stale runtime file: $marker"
+done
 
 exec /usr/local/bin/fansly-scraper "$@"

@@ -15,6 +15,7 @@ FROM alpine:3.22
 RUN apk add --no-cache \
     ca-certificates \
     ffmpeg \
+    flock \
     nano \
     su-exec \
     tzdata

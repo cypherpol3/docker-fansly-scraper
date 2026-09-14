@@ -1,7 +1,7 @@
-.git
-.github
-.gitignore
-README.md
-docker-compose.yml
-config/
-data/
+# Send only the files required to build the image.
+
+**
+!Dockerfile
+!docker-entrypoint.sh
+!defaults/
+!defaults/config.toml
