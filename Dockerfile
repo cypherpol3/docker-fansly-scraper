@@ -12,6 +12,11 @@ RUN CGO_ENABLED=0 GOPROXY=direct go install \
 
 FROM alpine:3.22
 
+LABEL org.opencontainers.image.title="docker-fansly-scraper" \
+      org.opencontainers.image.description="Docker image for agnosto/fansly-scraper" \
+      org.opencontainers.image.url="https://github.com/cypherpol3/docker-fansly-scraper" \
+      org.opencontainers.image.source="https://github.com/cypherpol3/docker-fansly-scraper"
+
 RUN apk add --no-cache \
     ca-certificates \
     ffmpeg \
