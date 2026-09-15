@@ -43,6 +43,8 @@ docker compose up -d
 docker attach fansly-scraper
 ```
 
+Live monitoring requires keeping your terminal session active. 
+
 Detach with **Ctrl+P, then Ctrl+Q** to keep it running. This disconnects your terminal while the scraper and any active monitoring continue in the background. Run `docker attach fansly-scraper` again to return to the interface. See [Docker attach](https://docs.docker.com/reference/cli/docker/container/attach/) for details.
 
 ## Configuration
